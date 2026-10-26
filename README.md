@@ -20,16 +20,16 @@ Página web completa desde la interfaz hasta la base de datos, según la arquite
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/api/estudiantes` | Listar todos |
-| GET | `/api/estudiantes/:id` | Obtener uno |
-| POST | `/api/estudiantes` | Crear nuevo |
-| PUT | `/api/estudiantes/:id` | Editar |
-| DELETE | `/api/estudiantes/:id` | Eliminar |
-| GET | `/api/salud` | Estado del servidor |
+| GET | `/estudiantes` | Listar todos |
+| GET | `/estudiantes/:id` | Obtener uno |
+| POST | `/estudiantes` | Crear nuevo |
+| PUT | `/estudiantes/:id` | Editar |
+| DELETE | `/estudiantes/:id` | Eliminar |
+| GET | `/salud` | Estado del servidor |
 
 Ejemplo:
 ```bash
-curl http://localhost:3001/api/estudiantes
+curl http://localhost:3001/estudiantes
 ```
 
 ## 3. Requisitos
@@ -54,13 +54,12 @@ docker compose up -d db
 ### 4.2 Server (puerto 3001)
 ```bash
 cd server
-cp .env.example .env
 npm install
 npm run dev
-# → http://localhost:3001/api/salud
+# → http://localhost:3001/salud
 ```
 
-> Si MySQL no está disponible, el server arranca igual con almacenamiento en memoria (los mismos 3 estudiantes de la pizarra) y te avisa en consola. En cuanto MySQL esté arriba, se conecta solo al reiniciar.
+> El server necesita MySQL corriendo (usuario `root` / contraseña `admin`, base `matricula_db`). Sin MySQL no arranca. Todo está hardcodeado en `server/src/db.js`.
 
 ### 4.3 Client (puerto 3000)
 En otra terminal:

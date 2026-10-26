@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/estudiantes';
+const API = 'http://localhost:3001/estudiantes';
 const VACIO = { nombre: '', edad: '', carrera: '', correo: '', semestre: '' };
 
 // Datos de ejemplo para el modo demo (sin server, p. ej. en GitHub Pages).
