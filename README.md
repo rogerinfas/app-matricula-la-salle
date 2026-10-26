@@ -1,6 +1,6 @@
 # App de Matrícula de Estudiantes (La Salle)
 
-**🌐 Verla funcionando:** https://rogerinfas.github.io/app-matricula-la-salle/ (modo demo: los datos se guardan en tu navegador)
+**🌐 Verla funcionando:** https://rogerinfas.github.io/app-matricula-la-salle/ (interfaz estilo iOS, modo demo: los datos se guardan en tu navegador)
 
 > La demo en internet es solo el frontend. La versión completa con Node.js + MySQL se corre localmente (paso 4).
 
