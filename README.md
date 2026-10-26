@@ -92,8 +92,8 @@ npm run dev
 ```
 app-matricula-la-salle/
 ├── server/             # Node.js + Express (puerto 3001)
-│   ├── src/index.js    # Endpoints GET/POST/PUT/DELETE
-│   ├── src/db.js       # Conexión MySQL + fallback en memoria
+│   ├── src/index.js    # Endpoints GET/POST/PUT/DELETE con db.query
+│   ├── src/db.js       # Pool MySQL (hardcodeado)
 │   └── .env.example
 ├── client/             # React + Vite estilo iOS (puerto 3000)
 │   └── src/App.jsx     # Lista + detalle + sheets + matricular/editar/eliminar
