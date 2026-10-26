@@ -11,12 +11,12 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
-async function initDb() {
+function initDb() {
   // Si MySQL no está corriendo, el server no arranca (sin fallback).
-  const conn = await pool.getConnection();
-  await conn.ping();
-  conn.release();
-  console.log('[db] Conectado a MySQL localhost:3306/matricula_db');
+  return pool
+    .getConnection()
+    .then((conn) => conn.ping().then(() => conn.release()))
+    .then(() => console.log('[db] Conectado a MySQL localhost:3306/matricula_db'));
 }
 
 function validateEstudiante({ nombre, edad, carrera, correo, semestre }) {

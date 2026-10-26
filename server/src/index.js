@@ -14,34 +14,33 @@ app.get('/salud', (req, res) => {
 });
 
 // GET /estudiantes (listar todos)
-app.get('/estudiantes', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes ORDER BY id ASC');
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al listar estudiantes' });
-  }
+app.get('/estudiantes', (req, res) => {
+  pool
+    .query('SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes ORDER BY id ASC')
+    .then(([rows]) => res.json(rows))
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ error: 'Error al listar estudiantes' });
+    });
 });
 
 // GET /estudiantes/:id (uno solo, útil para editar)
-app.get('/estudiantes/:id', async (req, res) => {
+app.get('/estudiantes/:id', (req, res) => {
   const id = Number(req.params.id);
-  try {
-    const [rows] = await pool.query(
-      'SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes WHERE id = ?',
-      [id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Estudiante no encontrado' });
-    res.json(rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al obtener estudiante' });
-  }
+  pool
+    .query('SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes WHERE id = ?', [id])
+    .then(([rows]) => {
+      if (!rows.length) return res.status(404).json({ error: 'Estudiante no encontrado' });
+      res.json(rows[0]);
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ error: 'Error al obtener estudiante' });
+    });
 });
 
 // POST /estudiantes (crear nuevo)
-app.post('/estudiantes', async (req, res) => {
+app.post('/estudiantes', (req, res) => {
   const { nombre, edad, carrera, correo, semestre } = req.body || {};
   const errors = validateEstudiante({ nombre, edad, carrera, correo, semestre });
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
@@ -54,29 +53,27 @@ app.post('/estudiantes', async (req, res) => {
     semestre: Number(semestre),
   };
 
-  try {
-    try {
-      const [result] = await pool.query(
-        'INSERT INTO estudiantes (nombre, edad, carrera, correo, semestre) VALUES (?, ?, ?, ?, ?)',
-        [data.nombre, data.edad, data.carrera, data.correo, data.semestre]
-      );
-      const [rows] = await pool.query(
-        'SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes WHERE id = ?',
-        [result.insertId]
-      );
-      res.status(201).json(rows[0]);
-    } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Ese correo ya esta matriculado' });
-      throw err;
-    }
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al crear estudiante' });
-  }
+  pool
+    .query(
+      'INSERT INTO estudiantes (nombre, edad, carrera, correo, semestre) VALUES (?, ?, ?, ?, ?)',
+      [data.nombre, data.edad, data.carrera, data.correo, data.semestre]
+    )
+    .then(([result]) =>
+      pool.query('SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes WHERE id = ?', [
+        result.insertId,
+      ])
+    )
+    .then(([rows]) => res.status(201).json(rows[0]))
+    .catch((err) => {
+      if (err.code === 'ER_DUP_ENTRY')
+        return res.status(409).json({ error: 'Ese correo ya esta matriculado' });
+      console.error(err);
+      res.status(500).json({ error: 'Error al crear estudiante' });
+    });
 });
 
 // PUT /estudiantes/:id (editar)
-app.put('/estudiantes/:id', async (req, res) => {
+app.put('/estudiantes/:id', (req, res) => {
   const id = Number(req.params.id);
   const { nombre, edad, carrera, correo, semestre } = req.body || {};
   const errors = validateEstudiante({ nombre, edad, carrera, correo, semestre });
@@ -90,39 +87,38 @@ app.put('/estudiantes/:id', async (req, res) => {
     semestre: Number(semestre),
   };
 
-  try {
-    try {
-      const [result] = await pool.query(
-        'UPDATE estudiantes SET nombre = ?, edad = ?, carrera = ?, correo = ?, semestre = ? WHERE id = ?',
-        [data.nombre, data.edad, data.carrera, data.correo, data.semestre, id]
-      );
+  pool
+    .query(
+      'UPDATE estudiantes SET nombre = ?, edad = ?, carrera = ?, correo = ?, semestre = ? WHERE id = ?',
+      [data.nombre, data.edad, data.carrera, data.correo, data.semestre, id]
+    )
+    .then(([result]) => {
       if (result.affectedRows === 0) return res.status(404).json({ error: 'Estudiante no encontrado' });
-      const [rows] = await pool.query(
-        'SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes WHERE id = ?',
-        [id]
-      );
-      res.json(rows[0]);
-    } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Ese correo ya esta matriculado' });
-      throw err;
-    }
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al actualizar estudiante' });
-  }
+      return pool
+        .query('SELECT id, nombre, edad, carrera, correo, semestre FROM estudiantes WHERE id = ?', [id])
+        .then(([rows]) => res.json(rows[0]));
+    })
+    .catch((err) => {
+      if (err.code === 'ER_DUP_ENTRY')
+        return res.status(409).json({ error: 'Ese correo ya esta matriculado' });
+      console.error(err);
+      res.status(500).json({ error: 'Error al actualizar estudiante' });
+    });
 });
 
 // DELETE /estudiantes/:id (eliminar)
-app.delete('/estudiantes/:id', async (req, res) => {
+app.delete('/estudiantes/:id', (req, res) => {
   const id = Number(req.params.id);
-  try {
-    const [result] = await pool.query('DELETE FROM estudiantes WHERE id = ?', [id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Estudiante no encontrado' });
-    res.json({ ok: true, id });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al eliminar estudiante' });
-  }
+  pool
+    .query('DELETE FROM estudiantes WHERE id = ?', [id])
+    .then(([result]) => {
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Estudiante no encontrado' });
+      res.json({ ok: true, id });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ error: 'Error al eliminar estudiante' });
+    });
 });
 
 initDb()

@@ -11,15 +11,15 @@ const DEMO_SEED = [
 ];
 
 function leerDemo() {
-  try {
-    const raw = localStorage.getItem('estudiantes-demo');
-    if (raw) return JSON.parse(raw);
-  } catch { /* semilla por defecto */ }
-  return DEMO_SEED;
+  // Lo que hay en localStorage siempre lo escribió esta misma app (JSON válido).
+  const raw = localStorage.getItem('estudiantes-demo');
+  if (!raw) return DEMO_SEED;
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed) && parsed.length ? parsed : DEMO_SEED;
 }
 
 function guardarDemo(rows) {
-  try { localStorage.setItem('estudiantes-demo', JSON.stringify(rows)); } catch { /* solo memoria */ }
+  localStorage.setItem('estudiantes-demo', JSON.stringify(rows));
 }
 
 const AVATARES = [
@@ -82,17 +82,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [banner]);
 
-  async function cargar() {
-    try {
-      const r = await fetch(API);
-      if (!r.ok) throw new Error('server no disponible');
-      const data = await r.json();
-      setEstudiantes(Array.isArray(data) ? data : []);
-      setDemo(false);
-    } catch {
-      setDemo(true);
-      setEstudiantes(leerDemo());
-    }
+  function cargar() {
+    fetch(API)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('server no disponible'))))
+      .then((data) => {
+        setEstudiantes(Array.isArray(data) ? data : []);
+        setDemo(false);
+      })
+      .catch(() => {
+        setDemo(true);
+        setEstudiantes(leerDemo());
+      });
   }
 
   const filtrados = useMemo(() => {
@@ -128,7 +128,7 @@ export default function App() {
     return null;
   }
 
-  async function guardar(e) {
+  function guardar(e) {
     e.preventDefault();
     const datos = {
       nombre: String(form.nombre).trim(),
@@ -163,24 +163,23 @@ export default function App() {
       return;
     }
 
-    try {
-      const r = await fetch(editandoId ? `${API}/${editandoId}` : API, {
-        method: editandoId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos),
-      });
-      const data = await r.json();
-      if (!r.ok) { setBanner(data.error || 'Error al guardar'); return; }
-      setBanner(editandoId ? 'Cambios guardados' : 'Estudiante matriculado');
-      setSheet(null);
-      setTab('estudiantes');
-      cargar();
-    } catch {
-      setBanner('Sin conexión con el servidor');
-    }
+    fetch(editandoId ? `${API}/${editandoId}` : API, {
+      method: editandoId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    })
+      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) { setBanner(data.error || 'Error al guardar'); return; }
+        setBanner(editandoId ? 'Cambios guardados' : 'Estudiante matriculado');
+        setSheet(null);
+        setTab('estudiantes');
+        cargar();
+      })
+      .catch(() => setBanner('Sin conexión con el servidor'));
   }
 
-  async function eliminar(id) {
+  function eliminar(id) {
     setConfirmarId(null);
     if (demo) {
       const rows = estudiantes.filter((x) => x.id !== id);
@@ -190,16 +189,15 @@ export default function App() {
       setBanner('Estudiante eliminado');
       return;
     }
-    try {
-      const r = await fetch(`${API}/${id}`, { method: 'DELETE' });
-      const data = await r.json();
-      if (!r.ok) { setBanner(data.error || 'Error al eliminar'); return; }
-      setSeleccionadoId(null);
-      setBanner('Estudiante eliminado');
-      cargar();
-    } catch {
-      setBanner('Sin conexión con el servidor');
-    }
+    fetch(`${API}/${id}`, { method: 'DELETE' })
+      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) { setBanner(data.error || 'Error al eliminar'); return; }
+        setSeleccionadoId(null);
+        setBanner('Estudiante eliminado');
+        cargar();
+      })
+      .catch(() => setBanner('Sin conexión con el servidor'));
   }
 
   const hh = hora.getHours();
