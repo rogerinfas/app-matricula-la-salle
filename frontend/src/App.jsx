@@ -3,21 +3,47 @@ import { useEffect, useState } from 'react';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/estudiantes';
 const VACIO = { nombre: '', edad: '', carrera: '', correo: '', semestre: '' };
 
+// Datos de ejemplo para el modo demo (cuando no hay backend, p. ej. en GitHub Pages).
+// Se guardan en localStorage para que crear/editar/eliminar funcionen en la demo.
+const DEMO_SEED = [
+  { id: 1, nombre: 'Juan Perez', edad: 20, carrera: 'Ing. de Software', correo: 'juan@lasalle.edu.mx', semestre: 4 },
+  { id: 2, nombre: 'Maria Gomez', edad: 19, carrera: 'Admon. de Empresas', correo: 'maria@lasalle.edu.mx', semestre: 2 },
+  { id: 3, nombre: 'Carlos Ramirez', edad: 22, carrera: 'Ing. Civil', correo: 'carlos@lasalle.edu.mx', semestre: 6 },
+];
+
+function leerDemo() {
+  try {
+    const raw = localStorage.getItem('estudiantes-demo');
+    if (raw) return JSON.parse(raw);
+  } catch { /* semilla por defecto */ }
+  return DEMO_SEED;
+}
+
+function guardarDemo(rows) {
+  try { localStorage.setItem('estudiantes-demo', JSON.stringify(rows)); } catch { /* solo memoria */ }
+}
+
 export default function App() {
   const [estudiantes, setEstudiantes] = useState([]);
   const [form, setForm] = useState(VACIO);
   const [editandoId, setEditandoId] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [demo, setDemo] = useState(false);
 
   async function cargar() {
     setCargando(true);
     try {
       const r = await fetch(API);
+      if (!r.ok) throw new Error('backend no disponible');
       const data = await r.json();
       setEstudiantes(Array.isArray(data) ? data : []);
+      setDemo(false);
     } catch {
-      setMensaje('No se pudo conectar con el backend (http://localhost:3001). ¿Está corriendo?');
+      // Sin backend (demo publicada en internet): usar datos locales.
+      setDemo(true);
+      setEstudiantes(leerDemo());
+      setMensaje('');
     } finally {
       setCargando(false);
     }
@@ -49,13 +75,29 @@ export default function App() {
   async function guardar(e) {
     e.preventDefault();
     setMensaje('');
+    const datos = { ...form, edad: Number(form.edad), semestre: Number(form.semestre) };
+    if (demo) {
+      // Modo demo: todo en el navegador (localStorage).
+      if (editandoId) {
+        const rows = estudiantes.map((x) => (x.id === editandoId ? { id: editandoId, ...datos } : x));
+        setEstudiantes(rows); guardarDemo(rows);
+        setMensaje(`Estudiante #${editandoId} actualizado (demo)`);
+      } else {
+        const id = estudiantes.length ? Math.max(...estudiantes.map((x) => x.id)) + 1 : 1;
+        const rows = [...estudiantes, { id, ...datos }];
+        setEstudiantes(rows); guardarDemo(rows);
+        setMensaje(`Matriculado con id #${id} (demo)`);
+      }
+      cancelar();
+      return;
+    }
     const metodo = editandoId ? 'PUT' : 'POST';
     const url = editandoId ? `${API}/${editandoId}` : API;
     try {
       const r = await fetch(url, {
         method: metodo,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, edad: Number(form.edad), semestre: Number(form.semestre) }),
+        body: JSON.stringify(datos),
       });
       const data = await r.json();
       if (!r.ok) {
@@ -72,6 +114,13 @@ export default function App() {
 
   async function eliminar(id) {
     if (!confirm(`¿Eliminar al estudiante #${id}?`)) return;
+    if (demo) {
+      const rows = estudiantes.filter((x) => x.id !== id);
+      setEstudiantes(rows); guardarDemo(rows);
+      setMensaje(`Estudiante #${id} eliminado (demo)`);
+      if (editandoId === id) cancelar();
+      return;
+    }
     try {
       const r = await fetch(`${API}/${id}`, { method: 'DELETE' });
       const data = await r.json();
@@ -100,6 +149,7 @@ export default function App() {
         <span className="pildora">Universidad La Salle</span>
       </header>
 
+      {demo && <div className="mensaje">🌐 Modo demo en internet (sin backend): los cambios se guardan en tu navegador. Para la versión completa con MySQL, corre el proyecto localmente.</div>}
       {mensaje && <div className="mensaje">{mensaje}</div>}
 
       <main className="rejilla">
