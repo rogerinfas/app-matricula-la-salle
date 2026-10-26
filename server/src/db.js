@@ -36,7 +36,7 @@ async function initDb() {
     mysqlOk = false;
     console.warn('[db] No se pudo conectar a MySQL, usando almacenamiento en memoria.');
     console.warn('[db] Motivo:', err.code || err.message);
-    console.warn('[db] Revisa backend/.env y que MySQL Server este corriendo en el puerto 3306.');
+    console.warn('[db] Revisa server/.env y que MySQL Server este corriendo en el puerto 3306.');
   }
 }
 

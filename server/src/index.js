@@ -6,12 +6,12 @@ const { initDb, isMysql, pool, memoryStore, validateEstudiante } = require('./db
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
 
-app.use(cors({ origin: (process.env.FRONTEND_URL || 'http://localhost:3000').split(',') }));
+app.use(cors({ origin: (process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000').split(',') }));
 app.use(express.json());
 
 // Salud
 app.get('/api/salud', (req, res) => {
-  res.json({ ok: true, servicio: 'matricula-backend-la-salle', mysql: isMysql(), puerto: PORT });
+  res.json({ ok: true, servicio: 'matricula-server-la-salle', mysql: isMysql(), puerto: PORT });
 });
 
 // GET /api/estudiantes (listar todos)
@@ -159,7 +159,7 @@ app.delete('/api/estudiantes/:id', async (req, res) => {
 
 initDb().then(() => {
   app.listen(PORT, () => {
-    console.log(`[api] Backend La Salle escuchando en http://localhost:${PORT}`);
+    console.log(`[api] Server La Salle escuchando en http://localhost:${PORT}`);
     console.log('[api] Endpoints: GET POST /api/estudiantes | GET PUT DELETE /api/estudiantes/:id');
   });
 });

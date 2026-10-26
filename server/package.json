@@ -1,7 +1,7 @@
 {
-  "name": "matricula-backend-la-salle",
+  "name": "matricula-server-la-salle",
   "version": "1.0.0",
-  "description": "Backend Node.js + Express para App de Matrícula de Estudiantes (La Salle)",
+  "description": "Server Node.js + Express para App de Matrícula de Estudiantes (La Salle)",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

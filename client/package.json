@@ -1,7 +1,7 @@
 {
-  "name": "matricula-frontend-la-salle",
+  "name": "matricula-client-la-salle",
   "version": "1.0.0",
-  "description": "Frontend React para App de Matrícula de Estudiantes (La Salle)",
+  "description": "Client React para App de Matrícula de Estudiantes (La Salle)",
   "type": "module",
   "scripts": {
     "dev": "vite --port 3000",

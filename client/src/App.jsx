@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/estudiantes';
 const VACIO = { nombre: '', edad: '', carrera: '', correo: '', semestre: '' };
 
-// Datos de ejemplo para el modo demo (sin backend, p. ej. en GitHub Pages).
+// Datos de ejemplo para el modo demo (sin server, p. ej. en GitHub Pages).
 const DEMO_SEED = [
   { id: 1, nombre: 'Juan Perez', edad: 20, carrera: 'Ing. de Software', correo: 'juan@lasalle.edu.mx', semestre: 4 },
   { id: 2, nombre: 'Maria Gomez', edad: 19, carrera: 'Admon. de Empresas', correo: 'maria@lasalle.edu.mx', semestre: 2 },
@@ -85,7 +85,7 @@ export default function App() {
   async function cargar() {
     try {
       const r = await fetch(API);
-      if (!r.ok) throw new Error('backend no disponible');
+      if (!r.ok) throw new Error('server no disponible');
       const data = await r.json();
       setEstudiantes(Array.isArray(data) ? data : []);
       setDemo(false);
