@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/estudiantes';
 const VACIO = { nombre: '', edad: '', carrera: '', correo: '', semestre: '' };
 
-// Datos de ejemplo para el modo demo (cuando no hay backend, p. ej. en GitHub Pages).
-// Se guardan en localStorage para que crear/editar/eliminar funcionen en la demo.
+// Datos de ejemplo para el modo demo (sin backend, p. ej. en GitHub Pages).
 const DEMO_SEED = [
   { id: 1, nombre: 'Juan Perez', edad: 20, carrera: 'Ing. de Software', correo: 'juan@lasalle.edu.mx', semestre: 4 },
   { id: 2, nombre: 'Maria Gomez', edad: 19, carrera: 'Admon. de Empresas', correo: 'maria@lasalle.edu.mx', semestre: 2 },
@@ -23,16 +22,67 @@ function guardarDemo(rows) {
   try { localStorage.setItem('estudiantes-demo', JSON.stringify(rows)); } catch { /* solo memoria */ }
 }
 
+const AVATARES = [
+  'linear-gradient(135deg,#5AC8FA,#007AFF)',
+  'linear-gradient(135deg,#FF9F0A,#FF375F)',
+  'linear-gradient(135deg,#BF5AF2,#5E5CE6)',
+  'linear-gradient(135deg,#64D2FF,#30D158)',
+  'linear-gradient(135deg,#FFD60A,#FF9F0A)',
+  'linear-gradient(135deg,#FF6482,#AF52DE)',
+];
+
+function iniciales(nombre) {
+  return String(nombre || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0].toUpperCase())
+    .join('');
+}
+
+function IconoLista({ activo }) {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" fill={activo ? '#007AFF' : '#8E8E93'}>
+      <path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 1a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 1c-2.7 0-8 1.3-8 4v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2c0-2.7-5.3-4-8-4ZM2 17v-1a4 4 0 0 1 3-3.9A6.7 6.7 0 0 0 2 17v3a1 1 0 0 0 1 1h2v-2a5 5 0 0 1-3-2Z" />
+    </svg>
+  );
+}
+
+function IconoMas({ activo }) {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke={activo ? '#007AFF' : '#8E8E93'} strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [estudiantes, setEstudiantes] = useState([]);
-  const [form, setForm] = useState(VACIO);
-  const [editandoId, setEditandoId] = useState(null);
-  const [mensaje, setMensaje] = useState('');
-  const [cargando, setCargando] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [tab, setTab] = useState('estudiantes');
+  const [busqueda, setBusqueda] = useState('');
+  const [seleccionadoId, setSeleccionadoId] = useState(null);
+  const [sheet, setSheet] = useState(null); // null | { mode: 'nuevo' | 'editar', id? }
+  const [form, setForm] = useState(VACIO);
+  const [confirmarId, setConfirmarId] = useState(null);
+  const [banner, setBanner] = useState('');
+  const [hora, setHora] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setHora(new Date()), 20000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => { cargar(); }, []);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(''), 2600);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   async function cargar() {
-    setCargando(true);
     try {
       const r = await fetch(API);
       if (!r.ok) throw new Error('backend no disponible');
@@ -40,176 +90,280 @@ export default function App() {
       setEstudiantes(Array.isArray(data) ? data : []);
       setDemo(false);
     } catch {
-      // Sin backend (demo publicada en internet): usar datos locales.
       setDemo(true);
       setEstudiantes(leerDemo());
-      setMensaje('');
-    } finally {
-      setCargando(false);
     }
   }
 
-  useEffect(() => { cargar(); }, []);
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return estudiantes;
+    return estudiantes.filter((e) =>
+      [e.nombre, e.carrera, e.correo].some((v) => String(v).toLowerCase().includes(q))
+    );
+  }, [estudiantes, busqueda]);
+
+  const seleccionado = estudiantes.find((e) => e.id === seleccionadoId) || null;
 
   function onChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function empezarEdicion(est) {
-    setEditandoId(est.id);
-    setForm({
-      nombre: est.nombre,
-      edad: est.edad,
-      carrera: est.carrera,
-      correo: est.correo,
-      semestre: est.semestre,
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  function abrirNuevo() {
+    setForm(VACIO);
+    setSheet({ mode: 'nuevo' });
   }
 
-  function cancelar() {
-    setEditandoId(null);
-    setForm(VACIO);
+  function abrirEditar(est) {
+    setForm({ nombre: est.nombre, edad: est.edad, carrera: est.carrera, correo: est.correo, semestre: est.semestre });
+    setSheet({ mode: 'editar', id: est.id });
+  }
+
+  function validar(d) {
+    if (String(d.nombre).trim().length < 2) return 'Escribe el nombre del estudiante';
+    if (!d.edad || isNaN(Number(d.edad)) || Number(d.edad) < 1 || Number(d.edad) > 120) return 'Edad inválida (1–120)';
+    if (String(d.carrera).trim().length < 2) return 'Escribe la carrera';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(d.correo))) return 'Correo inválido';
+    if (isNaN(Number(d.semestre)) || Number(d.semestre) < 1 || Number(d.semestre) > 12) return 'Semestre inválido (1–12)';
+    return null;
   }
 
   async function guardar(e) {
     e.preventDefault();
-    setMensaje('');
-    const datos = { ...form, edad: Number(form.edad), semestre: Number(form.semestre) };
+    const datos = {
+      nombre: String(form.nombre).trim(),
+      edad: Number(form.edad),
+      carrera: String(form.carrera).trim(),
+      correo: String(form.correo).trim(),
+      semestre: Number(form.semestre),
+    };
+    const err = validar(datos);
+    if (err) { setBanner(err); return; }
+
+    const editandoId = sheet?.mode === 'editar' ? sheet.id : null;
+
     if (demo) {
-      // Modo demo: todo en el navegador (localStorage).
+      if (estudiantes.some((x) => x.id !== editandoId && x.correo.toLowerCase() === datos.correo.toLowerCase())) {
+        setBanner('Ese correo ya está matriculado');
+        return;
+      }
+      let rows;
       if (editandoId) {
-        const rows = estudiantes.map((x) => (x.id === editandoId ? { id: editandoId, ...datos } : x));
-        setEstudiantes(rows); guardarDemo(rows);
-        setMensaje(`Estudiante #${editandoId} actualizado (demo)`);
+        rows = estudiantes.map((x) => (x.id === editandoId ? { id: editandoId, ...datos } : x));
+        setBanner('Cambios guardados');
       } else {
         const id = estudiantes.length ? Math.max(...estudiantes.map((x) => x.id)) + 1 : 1;
-        const rows = [...estudiantes, { id, ...datos }];
-        setEstudiantes(rows); guardarDemo(rows);
-        setMensaje(`Matriculado con id #${id} (demo)`);
+        rows = [...estudiantes, { id, ...datos }];
+        setBanner('Estudiante matriculado');
       }
-      cancelar();
+      setEstudiantes(rows);
+      guardarDemo(rows);
+      setSheet(null);
+      setTab('estudiantes');
       return;
     }
-    const metodo = editandoId ? 'PUT' : 'POST';
-    const url = editandoId ? `${API}/${editandoId}` : API;
+
     try {
-      const r = await fetch(url, {
-        method: metodo,
+      const r = await fetch(editandoId ? `${API}/${editandoId}` : API, {
+        method: editandoId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datos),
       });
       const data = await r.json();
-      if (!r.ok) {
-        setMensaje(data.error || 'Error al guardar');
-        return;
-      }
-      setMensaje(editandoId ? `Estudiante #${editandoId} actualizado` : `Matriculado con id #${data.id}`);
-      cancelar();
+      if (!r.ok) { setBanner(data.error || 'Error al guardar'); return; }
+      setBanner(editandoId ? 'Cambios guardados' : 'Estudiante matriculado');
+      setSheet(null);
+      setTab('estudiantes');
       cargar();
     } catch {
-      setMensaje('Error de red: no se pudo guardar');
+      setBanner('Sin conexión con el servidor');
     }
   }
 
   async function eliminar(id) {
-    if (!confirm(`¿Eliminar al estudiante #${id}?`)) return;
+    setConfirmarId(null);
     if (demo) {
       const rows = estudiantes.filter((x) => x.id !== id);
-      setEstudiantes(rows); guardarDemo(rows);
-      setMensaje(`Estudiante #${id} eliminado (demo)`);
-      if (editandoId === id) cancelar();
+      setEstudiantes(rows);
+      guardarDemo(rows);
+      setSeleccionadoId(null);
+      setBanner('Estudiante eliminado');
       return;
     }
     try {
       const r = await fetch(`${API}/${id}`, { method: 'DELETE' });
       const data = await r.json();
-      if (!r.ok) {
-        setMensaje(data.error || 'Error al eliminar');
-        return;
-      }
-      setMensaje(`Estudiante #${id} eliminado`);
-      if (editandoId === id) cancelar();
+      if (!r.ok) { setBanner(data.error || 'Error al eliminar'); return; }
+      setSeleccionadoId(null);
+      setBanner('Estudiante eliminado');
       cargar();
     } catch {
-      setMensaje('Error de red: no se pudo eliminar');
+      setBanner('Sin conexión con el servidor');
     }
   }
 
+  const hh = hora.getHours();
+  const mm = String(hora.getMinutes()).padStart(2, '0');
+  const horaTxt = `${hh % 12 === 0 ? 12 : hh % 12}:${mm}`;
+
   return (
-    <div className="pagina">
-      <header className="encabezado">
-        <div className="marca">
-          <span className="birrete">🎓</span>
-          <div>
-            <h1>Matrícula de Estudiantes - La Salle</h1>
-            <p>React (puerto 3000) → Node.js + Express (puerto 3001) → MySQL (puerto 3306)</p>
+    <div className="fondo">
+      <div className="iphone">
+        <div className="pantalla">
+          <div className="isla" />
+          <div className="statusbar">
+            <span className="hora">{horaTxt}</span>
+            <span className="iconos">
+              <svg viewBox="0 0 20 14" width="18" height="12" fill="currentColor"><rect x="0" y="9" width="3" height="5" rx="1" /><rect x="5" y="6" width="3" height="8" rx="1" /><rect x="10" y="3" width="3" height="11" rx="1" /><rect x="15" y="0" width="3" height="14" rx="1" opacity=".4" /></svg>
+              <svg viewBox="0 0 24 24" width="17" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 10a12 12 0 0 1 16 0M7.5 13.5a7 7 0 0 1 9 0M11 17a1.5 1.5 0 0 1 2 0" /><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none" /></svg>
+              <svg viewBox="0 0 28 14" width="26" height="12" fill="none" stroke="currentColor"><rect x="1" y="1.5" width="22" height="11" rx="3.5" opacity=".5" /><rect x="3" y="3.5" width="15" height="7" rx="2" fill="currentColor" stroke="none" /><path d="M25.5 5v4" strokeLinecap="round" strokeWidth="1.6" opacity=".5" /></svg>
+            </span>
           </div>
+
+          {banner && <div className="banner">{banner}</div>}
+
+          {/* ===== Tab: Estudiantes ===== */}
+          {tab === 'estudiantes' && seleccionado === null && (
+            <div className="vista">
+              <div className="navbar">
+                <button className="navlink" onClick={() => setTab('nuevo')}>Matricular</button>
+                <button className="navmas" onClick={abrirNuevo} aria-label="Nuevo estudiante">＋</button>
+              </div>
+              <h1 className="titulogrande">Estudiantes</h1>
+              <div className="buscador">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#8E8E93" strokeWidth="2.4" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.8-3.8" /></svg>
+                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar" />
+              </div>
+
+              <div className="scroll">
+                <div className="seccion-titulo">Matriculados · {filtrados.length}</div>
+                <div className="grupo">
+                  {filtrados.map((est, i) => (
+                    <button
+                      key={est.id}
+                      className={'celda' + (i === filtrados.length - 1 ? ' ultima' : '')}
+                      onClick={() => setSeleccionadoId(est.id)}
+                    >
+                      <span className="avatar" style={{ background: AVATARES[est.id % AVATARES.length] }}>
+                        {iniciales(est.nombre)}
+                      </span>
+                      <span className="celda-txt">
+                        <span className="celda-nombre">{est.nombre}</span>
+                        <span className="celda-sub">{est.carrera} · Sem. {est.semestre}</span>
+                      </span>
+                      <span className="chevron">›</span>
+                    </button>
+                  ))}
+                  {filtrados.length === 0 && (
+                    <div className="vacio">Sin resultados</div>
+                  )}
+                </div>
+                {demo && <p className="nota">Modo demo: los cambios se guardan en este iPhone (navegador).</p>}
+              </div>
+            </div>
+          )}
+
+          {/* ===== Detalle ===== */}
+          {tab === 'estudiantes' && seleccionado !== null && (
+            <div className="vista detalle">
+              <div className="navbar">
+                <button className="navlink" onClick={() => setSeleccionadoId(null)}>‹ Estudiantes</button>
+                <button className="navlink" onClick={() => abrirEditar(seleccionado)}>Editar</button>
+              </div>
+              <div className="perfil">
+                <span className="avatar grande" style={{ background: AVATARES[seleccionado.id % AVATARES.length] }}>
+                  {iniciales(seleccionado.nombre)}
+                </span>
+                <h2>{seleccionado.nombre}</h2>
+                <p>{seleccionado.carrera}</p>
+              </div>
+              <div className="grupo">
+                <div className="fila"><span>Edad</span><b>{seleccionado.edad} años</b></div>
+                <div className="fila"><span>Semestre</span><b>{seleccionado.semestre}°</b></div>
+                <div className="fila ultima"><span>Correo</span><b className="correo">{seleccionado.correo}</b></div>
+              </div>
+              <button className="btn-eliminar" onClick={() => setConfirmarId(seleccionado.id)}>
+                Eliminar estudiante
+              </button>
+            </div>
+          )}
+
+          {/* ===== Tab: Matricular ===== */}
+          {tab === 'nuevo' && (
+            <div className="vista">
+              <div className="navbar centro"><span className="navtitulo">Nuevo estudiante</span></div>
+              <h1 className="titulogrande">Matricular</h1>
+              <div className="scroll">
+                <Formulario form={form} onChange={onChange} onSubmit={guardar} submitLabel="Matricular" />
+                <p className="nota">React → Node.js + Express → MySQL · La Salle</p>
+              </div>
+            </div>
+          )}
+
+          {/* ===== Sheet: editar / nuevo rápido ===== */}
+          {sheet && (
+            <div className="sheet-fondo" onClick={() => setSheet(null)}>
+              <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                <div className="grabber" />
+                <div className="sheet-head">
+                  <button className="navlink" onClick={() => setSheet(null)}>Cancelar</button>
+                  <b>{sheet.mode === 'editar' ? 'Editar' : 'Nuevo'}</b>
+                  <button className="navlink fuerte" onClick={guardar}>Guardar</button>
+                </div>
+                <Formulario form={form} onChange={onChange} onSubmit={guardar} submitLabel={sheet.mode === 'editar' ? 'Guardar cambios' : 'Matricular'} />
+              </div>
+            </div>
+          )}
+
+          {/* ===== Action sheet: eliminar ===== */}
+          {confirmarId !== null && (
+            <div className="sheet-fondo" onClick={() => setConfirmarId(null)}>
+              <div className="actionsheet" onClick={(e) => e.stopPropagation()}>
+                <div className="grupo action">
+                  <div className="action-titulo">¿Eliminar a este estudiante?<br /><small>Esta acción no se puede deshacer.</small></div>
+                  <button className="action-btn destructivo" onClick={() => eliminar(confirmarId)}>Eliminar</button>
+                </div>
+                <div className="grupo action">
+                  <button className="action-btn" onClick={() => setConfirmarId(null)}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== Tab bar ===== */}
+          {seleccionado === null && !sheet && confirmarId === null && (
+            <nav className="tabbar">
+              <button className={'tab' + (tab === 'estudiantes' ? ' activo' : '')} onClick={() => setTab('estudiantes')}>
+                <IconoLista activo={tab === 'estudiantes'} />
+                <span>Estudiantes</span>
+              </button>
+              <button className={'tab' + (tab === 'nuevo' ? ' activo' : '')} onClick={() => setTab('nuevo')}>
+                <IconoMas activo={tab === 'nuevo'} />
+                <span>Matricular</span>
+              </button>
+            </nav>
+          )}
+          <div className="homebar" />
         </div>
-        <span className="pildora">Universidad La Salle</span>
-      </header>
-
-      {demo && <div className="mensaje">🌐 Modo demo en internet (sin backend): los cambios se guardan en tu navegador. Para la versión completa con MySQL, corre el proyecto localmente.</div>}
-      {mensaje && <div className="mensaje">{mensaje}</div>}
-
-      <main className="rejilla">
-        <section className="tarjeta">
-          <h2>{editandoId ? `Editar estudiante #${editandoId}` : 'Nuevo Estudiante'}</h2>
-          <form onSubmit={guardar} className="formulario">
-            <label>Nombre<input name="nombre" value={form.nombre} onChange={onChange} required placeholder="Juan Perez" /></label>
-            <div className="fila">
-              <label>Edad<input name="edad" type="number" min="1" max="120" value={form.edad} onChange={onChange} required placeholder="20" /></label>
-              <label>Semestre<input name="semestre" type="number" min="1" max="12" value={form.semestre} onChange={onChange} required placeholder="4" /></label>
-            </div>
-            <label>Carrera<input name="carrera" value={form.carrera} onChange={onChange} required placeholder="Ing. de Software" /></label>
-            <label>Correo<input name="correo" type="email" value={form.correo} onChange={onChange} required placeholder="juan@lasalle.edu.mx" /></label>
-            <div className="acciones-form">
-              <button type="submit" className="btn primario">{editandoId ? 'Guardar cambios' : 'Matricular'}</button>
-              {editandoId && <button type="button" className="btn" onClick={cancelar}>Cancelar</button>}
-            </div>
-          </form>
-          <p className="ayuda">Puerto: 3000 · Se abre en el navegador en http://localhost:3000</p>
-        </section>
-
-        <section className="tarjeta">
-          <div className="tabla-cabeza">
-            <h2>Estudiantes ({estudiantes.length})</h2>
-            <button className="btn pequeno" onClick={cargar} disabled={cargando}>
-              {cargando ? 'Cargando…' : 'Recargar'}
-            </button>
-          </div>
-          <div className="tabla-contenedor">
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Nombre</th><th>Edad</th><th>Carrera</th><th>Correo</th><th>Sem.</th><th>Acciones</th></tr>
-              </thead>
-              <tbody>
-                {estudiantes.map((est) => (
-                  <tr key={est.id}>
-                    <td>{est.id}</td>
-                    <td>{est.nombre}</td>
-                    <td>{est.edad}</td>
-                    <td>{est.carrera}</td>
-                    <td className="correo">{est.correo}</td>
-                    <td>{est.semestre}</td>
-                    <td className="acciones">
-                      <button className="btn pequeno" onClick={() => empezarEdicion(est)} title="Editar">✏️</button>
-                      <button className="btn pequeno peligro" onClick={() => eliminar(est.id)} title="Eliminar">🗑️</button>
-                    </td>
-                  </tr>
-                ))}
-                {!estudiantes.length && !cargando && (
-                  <tr><td colSpan="7" className="vacio">Sin estudiantes. ¡Matricula el primero!</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-
-      <footer className="pie">
-        <span>Endpoints: GET /api/estudiantes · POST /api/estudiantes · PUT /api/estudiantes/:id · DELETE /api/estudiantes/:id</span>
-      </footer>
+      </div>
+      <p className="piedemo">Matrícula de Estudiantes · La Salle · demo interactiva</p>
     </div>
+  );
+}
+
+function Formulario({ form, onChange, onSubmit, submitLabel }) {
+  return (
+    <form onSubmit={onSubmit}>
+      <div className="grupo">
+        <label className="campo"><span>Nombre</span><input name="nombre" value={form.nombre} onChange={onChange} required placeholder="Juan Perez" /></label>
+        <div className="campo-doble">
+          <label className="campo"><span>Edad</span><input name="edad" type="number" min="1" max="120" value={form.edad} onChange={onChange} required placeholder="20" /></label>
+          <label className="campo"><span>Semestre</span><input name="semestre" type="number" min="1" max="12" value={form.semestre} onChange={onChange} required placeholder="4" /></label>
+        </div>
+        <label className="campo"><span>Carrera</span><input name="carrera" value={form.carrera} onChange={onChange} required placeholder="Ing. de Software" /></label>
+        <label className="campo ultima"><span>Correo</span><input name="correo" type="email" value={form.correo} onChange={onChange} required placeholder="juan@lasalle.edu.mx" /></label>
+      </div>
+      <button type="submit" className="btn-ios">{submitLabel}</button>
+    </form>
   );
 }
