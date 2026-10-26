@@ -18,9 +18,11 @@ CREATE TABLE IF NOT EXISTS estudiantes (
   edad INT NOT NULL CHECK (edad BETWEEN 1 AND 120),
   carrera VARCHAR(100) NOT NULL,
   correo VARCHAR(150) NOT NULL UNIQUE,
-  semestre INT NOT NULL DEFAULT 1 CHECK (semestre BETWEEN 1 AND 12),
-  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  semestre INT NOT NULL DEFAULT 1 CHECK (semestre BETWEEN 1 AND 12)
 ) ENGINE=InnoDB;
+
+-- Si ya habías creado la tabla con la columna creado_en, elimínala con:
+-- ALTER TABLE estudiantes DROP COLUMN creado_en;
 
 -- Datos de ejemplo (los de la pizarra)
 INSERT INTO estudiantes (nombre, edad, carrera, correo, semestre) VALUES
