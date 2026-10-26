@@ -1,5 +1,9 @@
 # App de Matrícula de Estudiantes (La Salle)
 
+**🌐 Verla funcionando:** https://rogerinfas.github.io/app-matricula-la-salle/ (modo demo: los datos se guardan en tu navegador)
+
+> La demo en internet es solo el frontend. La versión completa con Node.js + MySQL se corre localmente (paso 4).
+
 Página web completa desde la interfaz hasta la base de datos, según la arquitectura de clase:
 
 `Usuario → React (puerto 3000) → Node.js + Express (puerto 3001) → MySQL (puerto 3306)`
